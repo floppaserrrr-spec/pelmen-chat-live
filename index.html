@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>PELMEN CONNECT</title>
+    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="sidebar">
+        <div class="sidebar-header">🥟 КОНТАКТЫ</div>
+        <div id="user-list"></div>
+    </div>
+    <div id="main">
+        <header>
+            <div>ЧАТ <span id="status"></span></div>
+            <button id="hangup-btn" onclick="hangUp()">ЗАВЕРШИТЬ</button>
+        </header>
+        <div id="chat"></div>
+        <div class="footer">
+            <input type="text" id="inp" placeholder="Сообщение...">
+            <button onclick="send()" style="background:#ff9900; border:none; padding:10px; border-radius:50%; cursor:pointer;">➤</button>
+        </div>
+    </div>
+
+    <div id="call-screen">
+        <div class="call-box">
+            <h2>🥟 Звонок...</h2>
+            <h3 id="caller-name"></h3>
+            <button class="action-btn" id="answer-btn" onclick="acceptCall()">ОТВЕТИТЬ</button>
+            <button class="action-btn" id="reject-btn" onclick="closeCallScreen()">ОТКЛОНИТЬ</button>
+        </div>
+    </div>
+
+    <audio id="remote-audio" autoplay></audio>
+    <script src="script.js"></script>
+</body>
+</html>
