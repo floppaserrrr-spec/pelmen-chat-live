@@ -1,102 +1,117 @@
 const socket = io('https://pelmen-chat.onrender.com');
-const nick = prompt("Ваш ник:");
-let pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-let currentCallWith = null;
-let myStream = null;
+const chat = document.getElementById('chat');
+const userList = document.getElementById('user-list');
+const input = document.getElementById('inp');
+const nickInput = document.getElementById('nickname');
+const remoteAudio = document.getElementById('remote-audio');
+const callScreen = document.getElementById('call-screen');
 
-socket.emit('login', nick);
+let localStream;
+let peerConnection;
+let targetUserId; // Для запоминания, кому мы звоним
+const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-socket.on('updateUserList', (users) => {
-    const list = document.getElementById('user-list');
-    list.innerHTML = '';
-    for (const [id, name] of Object.entries(users)) {
+// --- КОНТАКТЫ ---
+nickInput.onchange = () => {
+    socket.emit('set nickname', nickInput.value || "Аноним");
+};
+
+socket.on('user list', (users) => {
+    userList.innerHTML = '<div style="padding:10px; color:gray; font-size:12px;">Кликни для звонка:</div>';
+    Object.keys(users).forEach((id) => {
         if (id !== socket.id) {
-            list.innerHTML += `<div class="user-item"><span>${name}</span><button class="call-btn" onclick="callUser('${id}')">📞</button></div>`;
+            const el = document.createElement('div');
+            el.className = 'user-item';
+            el.innerText = "👤 " + users[id];
+            el.onclick = () => startCall(id, users[id]);
+            userList.appendChild(el);
         }
-    }
+    });
 });
 
+// --- ЧАТ ---
 function send() {
-    const inp = document.getElementById('inp');
-    if (inp.value.trim()) {
-        socket.emit('message', { user: nick, text: inp.value });
-        inp.value = "";
+    const text = input.value.trim();
+    if (text) {
+        socket.emit('chat message', { name: nickInput.value || "Аноним", type: 'text', msg: text });
+        input.value = '';
     }
 }
 
-socket.on('message', (data) => {
-    const chat = document.getElementById('chat');
-    const div = document.createElement('div');
-    div.className = `msg ${data.user === nick ? 'sent' : 'recv'}`;
-    div.innerHTML = `<b>${data.user}:</b> ${data.text}`;
-    chat.appendChild(div);
+function sendPhoto() {
+    const file = document.getElementById('file-input').files[0];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        socket.emit('chat message', { name: nickInput.value || "Аноним", type: 'image', msg: e.target.result });
+    };
+    if (file) reader.readAsDataURL(file);
+}
+
+socket.on('chat message', (data) => {
+    const msgDiv = document.createElement('div');
+    msgDiv.style.margin = "10px 0";
+    let content = data.type === 'image' ? `<br><img src="${data.msg}" style="max-width:200px; border-radius:10px; border:1px solid #ff9900;">` : data.msg;
+    msgDiv.innerHTML = `<b style="color:#ff9900;">${data.name}:</b> ${content}`;
+    chat.appendChild(msgDiv);
     chat.scrollTop = chat.scrollHeight;
 });
 
-// ЗВОНКИ
-async function callUser(id) {
-    currentCallWith = id;
-    myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
+// --- ЗВОНКИ (WebRTC) ---
+async function startCall(id, name) {
+    if(!confirm("Позвонить " + name + "?")) return;
+    targetUserId = id;
+    callScreen.style.display = 'flex';
+    document.getElementById('caller-name').innerText = name;
+    document.getElementById('call-status').innerText = "📞 Исходящий звонок...";
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit('call-user', { offer, to: id });
-    document.getElementById('status').innerText = "Звоним...";
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    peerConnection = new RTCPeerConnection(config);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    peerConnection.ontrack = e => remoteAudio.srcObject = e.streams[0];
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('call user', { to: id, offer: offer, fromName: nickInput.value || "Zivo" });
 }
 
-socket.on('call-made', async (data) => {
-    currentCallWith = data.socket;
-    document.getElementById('caller-name').innerText = data.from;
-    document.getElementById('call-screen').style.display = 'flex';
-    incomingCallOffer = data.offer;
+let incomingOfferData;
+socket.on('incoming call', (data) => {
+    incomingOfferData = data;
+    targetUserId = data.from;
+    callScreen.style.display = 'flex';
+    document.getElementById('caller-name').innerText = data.fromName;
+    document.getElementById('call-status').innerText = "📞 Входящий звонок...";
+    document.getElementById('answer-btn').style.display = 'block';
 });
 
-async function acceptCall() {
-    document.getElementById('call-screen').style.display = 'none';
-    myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    myStream.getTracks().forEach(track => pc.addTrack(track, myStream));
+async function answerCall() {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    peerConnection = new RTCPeerConnection(config);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    peerConnection.ontrack = e => remoteAudio.srcObject = e.streams[0];
 
-    await pc.setRemoteDescription(incomingCallOffer);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit('make-answer', { answer, to: currentCallWith });
-    showHangup();
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(incomingOfferData.offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit('accept call', { to: incomingOfferData.from, answer: answer });
+    
+    document.getElementById('call-status').innerText = "🎙️ В эфире";
+    document.getElementById('answer-btn').style.display = 'none';
 }
 
-socket.on('answer-made', async (data) => {
-    await pc.setRemoteDescription(data.answer);
-    showHangup();
+socket.on('call accepted', async (data) => {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    document.getElementById('call-status').innerText = "🎙️ В эфире";
 });
 
-function showHangup() {
-    document.getElementById('status').innerText = "📞 В ЭФИРЕ";
-    document.getElementById('hangup-btn').style.display = 'block';
+function endCall() {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    if (peerConnection) peerConnection.close();
+    socket.emit('end call', { to: targetUserId });
+    location.reload();
 }
 
-function hangUp() {
-    socket.emit('hangup', { to: currentCallWith });
-    stopCall();
-}
-
-socket.on('hangup-received', () => {
-    stopCall();
-    alert("Собеседник завершил звонок");
+socket.on('call ended', () => {
+    alert("Звонок завершен");
+    location.reload();
 });
-
-function stopCall() {
-    if (myStream) myStream.getTracks().forEach(track => track.stop());
-    pc.close();
-    location.reload(); // Перезагрузка — самый надежный способ очистить P2P
-}
-
-function closeCallScreen() {
-    document.getElementById('call-screen').style.display = 'none';
-    socket.emit('reject-call', { to: currentCallWith });
-}
-
-pc.ontrack = (event) => {
-    document.getElementById('remote-audio').srcObject = event.streams[0];
-};
-
-document.getElementById('inp').onkeydown = (e) => { if(e.key === 'Enter') send(); };

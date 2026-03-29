@@ -3,61 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PELMEN CONNECT</title>
+    <title>PELMEN CONNECT ULTIMATE</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <audio id="remote-audio" autoplay style="display:none;"></audio>
+
     <div id="sidebar">
         <div class="sidebar-header">🥟 КОНТАКТЫ</div>
         <div style="padding: 10px;">
             <input type="text" id="nickname" placeholder="Твой Ник..." 
-                   style="width: 80%; background: #333; color: #fff; border: 1px solid #ff9900; padding: 5px; border-radius: 5px;">
+                   style="width: 85%; background: #222; color: #fff; border: 1px solid #ff9900; padding: 8px; border-radius: 5px;">
         </div>
         <div id="user-list"></div>
     </div>
+
     <div id="main">
         <header>
             <div>ЧАТ <span id="status" style="color: #00ff00; font-size: 12px;">• Online</span></div>
-            <button id="hangup-btn" onclick="hangUp()">ЗАВЕРШИТЬ</button>
         </header>
+        
         <div id="chat"></div>
+        
         <div class="footer">
+            <label for="file-input" style="cursor:pointer; font-size: 24px;">🖼️</label>
+            <input type="file" id="file-input" accept="image/*" style="display:none" onchange="sendPhoto()">
+            
             <input type="text" id="inp" placeholder="Сообщение..." onkeypress="if(event.key === 'Enter') send()">
-            <button onclick="send()" style="background:#ff9900; border:none; padding:10px; border-radius:50%; cursor:pointer;">➤</button>
+            <button onclick="send()" style="background:#ff9900; border:none; padding:10px; border-radius:50%; cursor:pointer; color:white;">➤</button>
         </div>
     </div>
 
-    <script>
-        // ПОДКЛЮЧЕНИЕ
-        const socket = io('https://pelmen-chat.onrender.com');
+    <div id="call-screen" style="display: none;">
+        <div class="call-box">
+            <h2 id="call-status">📞 Звонок...</h2>
+            <h3 id="caller-name">...</h3>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                <button id="answer-btn" onclick="answerCall()" style="background:#28a745; color:white; padding:12px 25px; border:none; border-radius:10px; cursor:pointer; display:none;">ОТВЕТИТЬ</button>
+                <button onclick="endCall()" style="background:#dc3545; color:white; padding:12px 25px; border:none; border-radius:10px; cursor:pointer;">СБРОСИТЬ</button>
+            </div>
+        </div>
+    </div>
 
-        const chat = document.getElementById('chat');
-        const input = document.getElementById('inp');
-        const nickInput = document.getElementById('nickname');
-
-        // ОТПРАВКА
-        function send() {
-            const text = input.value.trim();
-            const nick = nickInput.value.trim() || "Аноним";
-
-            if (text) {
-                // Отправляем объект с ником и текстом
-                socket.emit('chat message', { name: nick, msg: text });
-                input.value = '';
-            }
-        }
-
-        // ПОЛУЧЕНИЕ
-        socket.on('chat message', (data) => {
-            const msgDiv = document.createElement('div');
-            msgDiv.style.margin = "8px 0";
-            msgDiv.innerHTML = `<b style="color: #ff9900;">${data.name}:</b> ${data.msg}`;
-            chat.appendChild(msgDiv);
-            chat.scrollTop = chat.scrollHeight;
-        });
-
-        function hangUp() { alert("Звонки будут в следующей версии! 🥟"); }
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
