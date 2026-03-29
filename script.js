@@ -1,4 +1,6 @@
-const socket = io(); // На Render оставим пустым, он сам поймет адрес
+// Замени на свою ссылку с Render!
+const socket = io('https://pelmen-chat.onrender.com'); 
+
 const chat = document.getElementById('chat'), userList = document.getElementById('user-list');
 const input = document.getElementById('inp'), nickInput = document.getElementById('nickname');
 const remoteAudio = document.getElementById('remote-audio'), callScreen = document.getElementById('call-screen');
@@ -8,7 +10,7 @@ const preview = document.getElementById('preview');
 let localStream, peerConnection, targetUserId, mediaRecorder, chunks = [];
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-// --- ЛОГИКА НИКА (ГЕРМАН / АНОНИМ) ---
+// --- НИКИ ---
 const savedNick = localStorage.getItem('pelmen_nick');
 if (savedNick) {
     nickInput.value = savedNick;
@@ -26,6 +28,34 @@ nickInput.onchange = () => {
     }
     socket.emit('set nickname', currentNick);
 };
+
+// --- ОТРИСОВКА КОНТАКТОВ ---
+socket.on('user list', (allUsers) => {
+    if (!userList) return;
+    userList.innerHTML = ''; 
+
+    Object.keys(allUsers).forEach((id) => {
+        const item = document.createElement('div');
+        item.className = 'user-item';
+        
+        const isMe = (id === socket.id);
+        const name = allUsers[id] || "Аноним";
+        const displayName = isMe ? `${name} (Вы)` : name;
+        
+        item.innerHTML = `<span>👤 ${displayName}</span>`;
+        item.style.padding = "12px";
+        item.style.borderBottom = "1px solid #222";
+        item.style.color = "white";
+
+        if (!isMe) {
+            item.style.cursor = "pointer";
+            item.onclick = () => startCall(id, name);
+        } else {
+            item.style.opacity = "0.6";
+        }
+        userList.appendChild(item);
+    });
+});
 
 // --- ОТПРАВКА ---
 function send() {
@@ -57,10 +87,11 @@ async function startRec(type) {
             const reader = new FileReader();
             reader.onload = (e) => socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: type, msg: e.target.result });
             reader.readAsDataURL(blob);
-            stream.getTracks().forEach(t => t.stop()); preview.style.display = 'none';
+            stream.getTracks().forEach(t => t.stop()); 
+            preview.style.display = 'none';
         };
         mediaRecorder.start();
-    } catch (e) { alert("Включи доступ к камере/микрофону!"); }
+    } catch (e) { alert("Включи доступ!"); }
 }
 
 recordBtn.onmousedown = () => { startRec('audio'); recordBtn.style.color = '#ff9900'; };
@@ -79,12 +110,14 @@ socket.on('chat message', (data) => {
     else content = `<span>${data.msg}</span>`;
     
     div.innerHTML = `<b style="color:#ff9900;">${data.name}:</b><br>${content}`;
-    chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+    chat.appendChild(div); 
+    chat.scrollTop = chat.scrollHeight;
 });
 
 // --- ЗВОНКИ ---
 async function startCall(id, name) {
-    targetUserId = id; callScreen.style.display = 'flex';
+    targetUserId = id; 
+    callScreen.style.display = 'flex';
     document.getElementById('caller-name').innerText = name;
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     peerConnection = new RTCPeerConnection(config);
@@ -96,7 +129,8 @@ async function startCall(id, name) {
 }
 
 socket.on('incoming call', (data) => {
-    window.lastOffer = data.offer; targetUserId = data.from;
+    window.lastOffer = data.offer; 
+    targetUserId = data.from;
     callScreen.style.display = 'flex';
     document.getElementById('caller-name').innerText = data.fromName;
     document.getElementById('answer-btn').style.display = 'inline-block';
