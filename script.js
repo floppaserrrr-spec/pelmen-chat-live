@@ -1,4 +1,4 @@
-const socket = io('https://pelmen-chat-xxxx.onrender.com');
+const socket = io('https://pelmen-chat.onrender.com');
 const nick = prompt("Ваш ник:");
 let pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
 let currentCallWith = null;

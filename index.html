@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PELMEN CONNECT</title>
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,17 +14,17 @@
     </div>
     <div id="main">
         <header>
-            <div>ЧАТ <span id="status"></span></div>
+            <div>ЧАТ <span id="status" style="color: #00ff00; font-size: 12px;">• Online</span></div>
             <button id="hangup-btn" onclick="hangUp()">ЗАВЕРШИТЬ</button>
         </header>
         <div id="chat"></div>
         <div class="footer">
-            <input type="text" id="inp" placeholder="Сообщение...">
+            <input type="text" id="inp" placeholder="Сообщение..." onkeypress="if(event.key === 'Enter') send()">
             <button onclick="send()" style="background:#ff9900; border:none; padding:10px; border-radius:50%; cursor:pointer;">➤</button>
         </div>
     </div>
 
-    <div id="call-screen">
+    <div id="call-screen" style="display: none;">
         <div class="call-box">
             <h2>🥟 Звонок...</h2>
             <h3 id="caller-name"></h3>
@@ -33,6 +34,43 @@
     </div>
 
     <audio id="remote-audio" autoplay></audio>
-    <script src="script.js"></script>
+
+    <script>
+        // Подключаемся к твоему серверу на Render
+        const socket = io('https://pelmen-chat.onrender.com');
+
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('inp');
+
+        // Функция отправки сообщения
+        function send() {
+            const text = input.value.trim();
+            if (text) {
+                // Отправляем на сервер
+                socket.emit('chat message', text);
+                input.value = ''; // Очищаем поле
+            }
+        }
+
+        // Слушаем сообщения от сервера
+        socket.on('chat message', (msg) => {
+            const msgDiv = document.createElement('div');
+            msgDiv.style.padding = "8px";
+            msgDiv.style.margin = "5px";
+            msgDiv.style.background = "#333";
+            msgDiv.style.borderRadius = "10px";
+            msgDiv.style.color = "white";
+            msgDiv.textContent = `🥟: ${msg}`;
+            chat.appendChild(msgDiv);
+            
+            // Автопрокрутка вниз
+            chat.scrollTop = chat.scrollHeight;
+        });
+
+        // Заглушки для функций звонков (чтобы не было ошибок в консоли)
+        function hangUp() { console.log("Звонок завершен"); }
+        function acceptCall() { console.log("Звонок принят"); }
+        function closeCallScreen() { document.getElementById('call-screen').style.display = 'none'; }
+    </script>
 </body>
 </html>
