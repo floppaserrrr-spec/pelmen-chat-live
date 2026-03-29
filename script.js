@@ -48,7 +48,7 @@ async function startRec(type) {
         mediaRecorder.onstop = () => {
             const blob = new Blob(chunks, { type: type === 'video-note' ? 'video/webm' : 'audio/ogg' });
             const reader = new FileReader();
-            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value || "Zivo", type: type, msg: e.target.result });
+            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value || "Аноним", type: type, msg: e.target.result });
             reader.readAsDataURL(blob);
             stream.getTracks().forEach(t => t.stop()); preview.style.display = 'none';
         };
@@ -82,7 +82,7 @@ async function startCall(id, name) {
     peerConnection.ontrack = e => remoteAudio.srcObject = e.streams[0];
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Zivo" });
+    socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Аноним" });
 }
 
 socket.on('incoming call', (data) => {
