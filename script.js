@@ -1,5 +1,5 @@
-const socket = io('http://localhost:3000');
-const nick = prompt("Ваш ник:") || "Гремлин";
+const socket = io('https://pelmen-chat-xxxx.onrender.com');
+const nick = prompt("Ваш ник:");
 let pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
 let currentCallWith = null;
 let myStream = null;
