@@ -10,6 +10,10 @@
 <body>
     <div id="sidebar">
         <div class="sidebar-header">🥟 КОНТАКТЫ</div>
+        <div style="padding: 10px;">
+            <input type="text" id="nickname" placeholder="Твой Ник..." 
+                   style="width: 80%; background: #333; color: #fff; border: 1px solid #ff9900; padding: 5px; border-radius: 5px;">
+        </div>
         <div id="user-list"></div>
     </div>
     <div id="main">
@@ -24,53 +28,36 @@
         </div>
     </div>
 
-    <div id="call-screen" style="display: none;">
-        <div class="call-box">
-            <h2>🥟 Звонок...</h2>
-            <h3 id="caller-name"></h3>
-            <button class="action-btn" id="answer-btn" onclick="acceptCall()">ОТВЕТИТЬ</button>
-            <button class="action-btn" id="reject-btn" onclick="closeCallScreen()">ОТКЛОНИТЬ</button>
-        </div>
-    </div>
-
-    <audio id="remote-audio" autoplay></audio>
-
     <script>
-        // Подключаемся к твоему серверу на Render
+        // ПОДКЛЮЧЕНИЕ
         const socket = io('https://pelmen-chat.onrender.com');
 
         const chat = document.getElementById('chat');
         const input = document.getElementById('inp');
+        const nickInput = document.getElementById('nickname');
 
-        // Функция отправки сообщения
+        // ОТПРАВКА
         function send() {
             const text = input.value.trim();
+            const nick = nickInput.value.trim() || "Аноним";
+
             if (text) {
-                // Отправляем на сервер
-                socket.emit('chat message', text);
-                input.value = ''; // Очищаем поле
+                // Отправляем объект с ником и текстом
+                socket.emit('chat message', { name: nick, msg: text });
+                input.value = '';
             }
         }
 
-        // Слушаем сообщения от сервера
-        socket.on('chat message', (msg) => {
+        // ПОЛУЧЕНИЕ
+        socket.on('chat message', (data) => {
             const msgDiv = document.createElement('div');
-            msgDiv.style.padding = "8px";
-            msgDiv.style.margin = "5px";
-            msgDiv.style.background = "#333";
-            msgDiv.style.borderRadius = "10px";
-            msgDiv.style.color = "white";
-            msgDiv.textContent = `🥟: ${msg}`;
+            msgDiv.style.margin = "8px 0";
+            msgDiv.innerHTML = `<b style="color: #ff9900;">${data.name}:</b> ${data.msg}`;
             chat.appendChild(msgDiv);
-            
-            // Автопрокрутка вниз
             chat.scrollTop = chat.scrollHeight;
         });
 
-        // Заглушки для функций звонков (чтобы не было ошибок в консоли)
-        function hangUp() { console.log("Звонок завершен"); }
-        function acceptCall() { console.log("Звонок принят"); }
-        function closeCallScreen() { document.getElementById('call-screen').style.display = 'none'; }
+        function hangUp() { alert("Звонки будут в следующей версии! 🥟"); }
     </script>
 </body>
 </html>

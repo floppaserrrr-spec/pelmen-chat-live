@@ -24,3 +24,12 @@ input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #
 .action-btn { border: none; padding: 12px 30px; border-radius: 10px; cursor: pointer; font-weight: bold; color: white; margin: 10px; }
 #answer-btn { background: #25d366; }
 #reject-btn { background: #ea0038; }
+body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: white; }
+#sidebar { width: 250px; background: #252525; border-right: 1px solid #444; }
+#main { flex: 1; display: flex; flex-direction: column; }
+header { padding: 15px; background: #333; display: flex; justify-content: space-between; align-items: center; }
+#chat { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+.footer { padding: 15px; background: #222; display: flex; gap: 10px; }
+#inp { flex: 1; padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 5px; }
+#hangup-btn { background: #ff4444; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer; }
+.sidebar-header { padding: 20px; font-weight: bold; border-bottom: 1px solid #444; }
