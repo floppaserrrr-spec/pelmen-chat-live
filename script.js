@@ -1,4 +1,4 @@
-const socket = io('https://pelmen-chat.onrender.com');
+const socket = io(); // На Render оставим пустым, он сам поймет адрес
 const chat = document.getElementById('chat'), userList = document.getElementById('user-list');
 const input = document.getElementById('inp'), nickInput = document.getElementById('nickname');
 const remoteAudio = document.getElementById('remote-audio'), callScreen = document.getElementById('call-screen');
@@ -8,23 +8,29 @@ const preview = document.getElementById('preview');
 let localStream, peerConnection, targetUserId, mediaRecorder, chunks = [];
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-nickInput.onchange = () => socket.emit('set nickname', nickInput.value || "Zivo");
+// --- ЛОГИКА НИКА (ГЕРМАН / АНОНИМ) ---
+const savedNick = localStorage.getItem('pelmen_nick');
+if (savedNick) {
+    nickInput.value = savedNick;
+    socket.emit('set nickname', savedNick);
+} else {
+    socket.emit('set nickname', "Аноним");
+}
 
-socket.on('user list', (users) => {
-    userList.innerHTML = '';
-    Object.keys(users).forEach(id => {
-        if (id !== socket.id) {
-            const el = document.createElement('div'); el.className = 'user-item';
-            el.innerText = "👤 " + users[id];
-            el.onclick = () => startCall(id, users[id]);
-            userList.appendChild(el);
-        }
-    });
-});
+nickInput.onchange = () => {
+    const currentNick = nickInput.value.trim() || "Аноним";
+    if (nickInput.value.trim() === "") {
+        localStorage.removeItem('pelmen_nick');
+    } else {
+        localStorage.setItem('pelmen_nick', currentNick);
+    }
+    socket.emit('set nickname', currentNick);
+};
 
+// --- ОТПРАВКА ---
 function send() {
     if (input.value.trim()) {
-        socket.emit('chat message', { name: nickInput.value || "Zivo", type: 'text', msg: input.value });
+        socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: 'text', msg: input.value });
         input.value = '';
     }
 }
@@ -34,10 +40,11 @@ function sendFile() {
     if (!file) return;
     const reader = new FileReader();
     const type = file.type.startsWith('video/') ? 'video-file' : 'image';
-    reader.onload = (e) => socket.emit('chat message', { name: nickInput.value || "Zivo", type: type, msg: e.target.result });
+    reader.onload = (e) => socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: type, msg: e.target.result });
     reader.readAsDataURL(file);
 }
 
+// --- ГС И КРУЖОЧКИ ---
 async function startRec(type) {
     try {
         chunks = [];
@@ -48,12 +55,12 @@ async function startRec(type) {
         mediaRecorder.onstop = () => {
             const blob = new Blob(chunks, { type: type === 'video-note' ? 'video/webm' : 'audio/ogg' });
             const reader = new FileReader();
-            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value || "Аноним", type: type, msg: e.target.result });
+            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: type, msg: e.target.result });
             reader.readAsDataURL(blob);
             stream.getTracks().forEach(t => t.stop()); preview.style.display = 'none';
         };
         mediaRecorder.start();
-    } catch (e) { alert("Ошибка оборудования"); }
+    } catch (e) { alert("Включи доступ к камере/микрофону!"); }
 }
 
 recordBtn.onmousedown = () => { startRec('audio'); recordBtn.style.color = '#ff9900'; };
@@ -61,6 +68,7 @@ recordBtn.onmouseup = () => { if(mediaRecorder) mediaRecorder.stop(); recordBtn.
 videoBtn.onmousedown = () => { startRec('video-note'); videoBtn.style.color = '#ff9900'; };
 videoBtn.onmouseup = () => { if(mediaRecorder) mediaRecorder.stop(); videoBtn.style.color = 'white'; };
 
+// --- РЕНДЕР СООБЩЕНИЙ ---
 socket.on('chat message', (data) => {
     const div = document.createElement('div');
     let content = '';
@@ -69,10 +77,12 @@ socket.on('chat message', (data) => {
     else if (data.type === 'video-note') content = `<video src="${data.msg}" class="video-circle" autoplay loop muted></video>`;
     else if (data.type === 'audio') content = `<audio src="${data.msg}" controls></audio>`;
     else content = `<span>${data.msg}</span>`;
+    
     div.innerHTML = `<b style="color:#ff9900;">${data.name}:</b><br>${content}`;
     chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
 });
 
+// --- ЗВОНКИ ---
 async function startCall(id, name) {
     targetUserId = id; callScreen.style.display = 'flex';
     document.getElementById('caller-name').innerText = name;

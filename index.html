@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>PELMEN CONNECT</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,20 +11,20 @@
     <video id="preview" autoplay muted></video>
 
     <div id="sidebar">
-        <div class="sidebar-header">🥟 КОНТАКТЫ</div>
+        <div class="sidebar-header">🥟 ПЕЛЬМЕНЬ ЧАТ</div>
         <input type="text" id="nickname" placeholder="Твой Ник...">
         <div id="user-list"></div>
     </div>
 
     <div id="main">
-        <header>ЧАТ <span style="color: #00ff00; font-size: 12px;">• Online</span></header>
+        <header>ЧАТ <span id="status" style="color: #00ff00; font-size: 12px;">• Online</span></header>
         <div id="chat"></div>
         <div class="footer">
             <label for="file-input" style="cursor:pointer; font-size: 24px;">🖼️</label>
             <input type="file" id="file-input" accept="image/*,video/*" style="display:none" onchange="sendFile()">
             <button id="record-btn">🎤</button>
             <button id="video-note-btn">📸</button>
-            <input type="text" id="inp" placeholder="Сообщение..." onkeypress="if(event.key === 'Enter') send()">
+            <input type="text" id="inp" placeholder="Напиши что-нибудь..." onkeypress="if(event.key === 'Enter') send()">
             <button onclick="send()" id="send-btn">➤</button>
         </div>
     </div>
@@ -33,9 +33,9 @@
         <div class="call-box">
             <h2 id="call-status">📞 Звонок...</h2>
             <h3 id="caller-name">...</h3>
-            <div class="call-btns">
-                <button id="answer-btn" class="btn-accept" onclick="answerCall()" style="display:none;">ОТВЕТИТЬ</button>
-                <button class="btn-reject" onclick="endCall()">СБРОСИТЬ</button>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button id="answer-btn" onclick="answerCall()" style="background:#28a745; color:white; padding:10px 20px; border-radius:10px; display:none;">ОТВЕТИТЬ</button>
+                <button onclick="endCall()" style="background:#dc3545; color:white; padding:10px 20px; border-radius:10px;">СБРОСИТЬ</button>
             </div>
         </div>
     </div>
