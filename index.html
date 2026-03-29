@@ -2,50 +2,43 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PELMEN CONNECT ULTIMATE</title>
+    <title>PELMEN CONNECT</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <audio id="remote-audio" autoplay style="display:none;"></audio>
+    <audio id="remote-audio" autoplay></audio>
+    <video id="preview" autoplay muted></video>
 
     <div id="sidebar">
         <div class="sidebar-header">🥟 КОНТАКТЫ</div>
-        <div style="padding: 10px;">
-            <input type="text" id="nickname" placeholder="Твой Ник..." 
-                   style="width: 85%; background: #222; color: #fff; border: 1px solid #ff9900; padding: 8px; border-radius: 5px;">
-        </div>
+        <input type="text" id="nickname" placeholder="Твой Ник...">
         <div id="user-list"></div>
     </div>
 
     <div id="main">
-        <header>
-            <div>ЧАТ <span id="status" style="color: #00ff00; font-size: 12px;">• Online</span></div>
-        </header>
-        
+        <header>ЧАТ <span style="color: #00ff00; font-size: 12px;">• Online</span></header>
         <div id="chat"></div>
-        
         <div class="footer">
             <label for="file-input" style="cursor:pointer; font-size: 24px;">🖼️</label>
-            <input type="file" id="file-input" accept="image/*" style="display:none" onchange="sendPhoto()">
-            
+            <input type="file" id="file-input" accept="image/*,video/*" style="display:none" onchange="sendFile()">
+            <button id="record-btn">🎤</button>
+            <button id="video-note-btn">📸</button>
             <input type="text" id="inp" placeholder="Сообщение..." onkeypress="if(event.key === 'Enter') send()">
-            <button onclick="send()" style="background:#ff9900; border:none; padding:10px; border-radius:50%; cursor:pointer; color:white;">➤</button>
+            <button onclick="send()" id="send-btn">➤</button>
         </div>
     </div>
 
-    <div id="call-screen" style="display: none;">
+    <div id="call-screen">
         <div class="call-box">
             <h2 id="call-status">📞 Звонок...</h2>
             <h3 id="caller-name">...</h3>
-            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
-                <button id="answer-btn" onclick="answerCall()" style="background:#28a745; color:white; padding:12px 25px; border:none; border-radius:10px; cursor:pointer; display:none;">ОТВЕТИТЬ</button>
-                <button onclick="endCall()" style="background:#dc3545; color:white; padding:12px 25px; border:none; border-radius:10px; cursor:pointer;">СБРОСИТЬ</button>
+            <div class="call-btns">
+                <button id="answer-btn" class="btn-accept" onclick="answerCall()" style="display:none;">ОТВЕТИТЬ</button>
+                <button class="btn-reject" onclick="endCall()">СБРОСИТЬ</button>
             </div>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
