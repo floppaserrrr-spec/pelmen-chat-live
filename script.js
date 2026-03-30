@@ -1,153 +1,138 @@
-// Замени на свою ссылку с Render!
 const socket = io('https://pelmen-chat.onrender.com'); 
 
 const chat = document.getElementById('chat'), userList = document.getElementById('user-list');
 const input = document.getElementById('inp'), nickInput = document.getElementById('nickname');
+const roomInput = document.getElementById('room-id'), chatTargetLabel = document.getElementById('chat-target');
+const backBtn = document.getElementById('back-btn'), recordBtn = document.getElementById('record-btn');
 const remoteAudio = document.getElementById('remote-audio'), callScreen = document.getElementById('call-screen');
-const recordBtn = document.getElementById('record-btn'), videoBtn = document.getElementById('video-note-btn');
-const preview = document.getElementById('preview');
 
-let localStream, peerConnection, targetUserId, mediaRecorder, chunks = [];
+let targetUserId = null, mediaRecorder, chunks = [];
 const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-// --- НИКИ ---
-const savedNick = localStorage.getItem('pelmen_nick');
-if (savedNick) {
-    nickInput.value = savedNick;
-    socket.emit('set nickname', savedNick);
-} else {
-    socket.emit('set nickname', "Аноним");
+function join() {
+    const roomId = roomInput.value.trim(), name = nickInput.value.trim() || "Аноним";
+    if (roomId) {
+        localStorage.setItem('pelmen_room', roomId);
+        localStorage.setItem('pelmen_nick', name);
+        socket.emit('join room', { roomId, name });
+    } else { alert("Введите код комнаты!"); }
 }
 
-nickInput.onchange = () => {
-    const currentNick = nickInput.value.trim() || "Аноним";
-    if (nickInput.value.trim() === "") {
-        localStorage.removeItem('pelmen_nick');
-    } else {
-        localStorage.setItem('pelmen_nick', currentNick);
-    }
-    socket.emit('set nickname', currentNick);
-};
+function logout() {
+    // Удаляем только комнату, чтобы выйти из чата
+    localStorage.removeItem('pelmen_room'); 
+    
+    // Ник НЕ ТРОГАЕМ, он останется в памяти (localStorage.getItem('pelmen_nick'))
+    
+    location.reload(); // Перезагружаем, чтобы сбросить соединение
+}
 
-// --- ОТРИСОВКА КОНТАКТОВ ---
+roomInput.value = localStorage.getItem('pelmen_room') || "";
+nickInput.value = localStorage.getItem('pelmen_nick') || "";
+if (roomInput.value) socket.emit('join room', { roomId: roomInput.value, name: nickInput.value });
+
+// --- ПЕРЕКЛЮЧЕНИЕ ЭКРАНОВ ---
+function selectUser(id, name) {
+    targetUserId = id; chatTargetLabel.innerText = name;
+    chat.innerHTML = ""; 
+    document.body.classList.add('chat-open');
+    backBtn.style.display = "inline-block";
+}
+
+function resetChat() {
+    targetUserId = null; chatTargetLabel.innerText = "ОБЩИЙ ЧАТ";
+    chat.innerHTML = "";
+    document.body.classList.add('chat-open'); // Важно: открываем экран чата на мобилке
+    backBtn.style.display = "inline-block";
+}
+
+function backToList() {
+    document.body.classList.remove('chat-open');
+    backBtn.style.display = "none";
+}
+
 socket.on('user list', (allUsers) => {
-    if (!userList) return;
-    userList.innerHTML = ''; 
-
+    userList.innerHTML = '<div class="user-item" style="background:#222; color:#ff9900; font-weight:bold;" onclick="resetChat()">🏠 ОБЩИЙ ЧАТ</div>'; 
     Object.keys(allUsers).forEach((id) => {
+        if (id === socket.id) return;
         const item = document.createElement('div');
         item.className = 'user-item';
-        
-        const isMe = (id === socket.id);
-        const name = allUsers[id] || "Аноним";
-        const displayName = isMe ? `${name} (Вы)` : name;
-        
-        item.innerHTML = `<span>👤 ${displayName}</span>`;
-        item.style.padding = "12px";
-        item.style.borderBottom = "1px solid #222";
-        item.style.color = "white";
-
-        if (!isMe) {
-            item.style.cursor = "pointer";
-            item.onclick = () => startCall(id, name);
-        } else {
-            item.style.opacity = "0.6";
-        }
+        item.innerHTML = `<span>👤 ${allUsers[id]}</span> <button onclick="event.stopPropagation(); startCall('${id}', '${allUsers[id]}')">📞</button>`;
+        item.onclick = () => selectUser(id, allUsers[id]);
         userList.appendChild(item);
     });
 });
 
-// --- ОТПРАВКА ---
-function send() {
-    if (input.value.trim()) {
-        socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: 'text', msg: input.value });
-        input.value = '';
-    }
-}
-
+// --- ФАЙЛЫ ---
 function sendFile() {
     const file = document.getElementById('file-input').files[0];
     if (!file) return;
     const reader = new FileReader();
-    const type = file.type.startsWith('video/') ? 'video-file' : 'image';
-    reader.onload = (e) => socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: type, msg: e.target.result });
+    reader.onload = (e) => {
+        const type = file.type.includes('video') ? 'video' : 'image';
+        socket.emit('chat message', { name: nickInput.value || "Аноним", type: type, msg: e.target.result, to: targetUserId });
+        document.getElementById('file-input').value = '';
+    };
     reader.readAsDataURL(file);
 }
 
-// --- ГС И КРУЖОЧКИ ---
-async function startRec(type) {
+// --- СООБЩЕНИЯ ---
+function send() {
+    if (!input.value.trim()) return;
+    socket.emit('chat message', { name: nickInput.value || "Аноним", type: 'text', msg: input.value, to: targetUserId });
+    input.value = '';
+}
+
+socket.on('chat message', (data) => {
+    const isFromMe = (data.from === socket.id || !data.from);
+    const isPrivateForMe = (data.isPrivate && (data.from === targetUserId || (data.to === targetUserId && isFromMe)));
+    if (!data.isPrivate || isPrivateForMe) {
+        const div = document.createElement('div');
+        let content = "";
+        if (data.type === 'image') content = `<img src="${data.msg}" style="max-width:250px;border-radius:10px;margin-top:5px;display:block;">`;
+        else if (data.type === 'video') content = `<video src="${data.msg}" controls style="max-width:250px;border-radius:10px;margin-top:5px;"></video>`;
+        else if (data.type === 'audio') content = `<audio src="${data.msg}" controls style="width:100%;"></audio>`;
+        else content = `<span>${data.msg}</span>`;
+        div.innerHTML = `<b style="color:${data.isPrivate ? '#ffcc00' : '#ff9900'};">${data.isPrivate ? '[ЛС] ' : ''}${data.name}:</b><br>${content}`;
+        chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
+    }
+});
+
+// --- ГС ---
+async function startRec() {
     try {
-        chunks = [];
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video-note' });
-        if (type === 'video-note') { preview.srcObject = stream; preview.style.display = 'block'; }
+        chunks = []; const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         mediaRecorder.ondataavailable = e => chunks.push(e.data);
         mediaRecorder.onstop = () => {
-            const blob = new Blob(chunks, { type: type === 'video-note' ? 'video/webm' : 'audio/ogg' });
+            const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
             const reader = new FileReader();
-            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value.trim() || "Аноним", type: type, msg: e.target.result });
-            reader.readAsDataURL(blob);
-            stream.getTracks().forEach(t => t.stop()); 
-            preview.style.display = 'none';
+            reader.onload = (e) => socket.emit('chat message', { name: nickInput.value || "Аноним", type: 'audio', msg: e.target.result, to: targetUserId });
+            reader.readAsDataURL(blob); stream.getTracks().forEach(t => t.stop());
         };
-        mediaRecorder.start();
-    } catch (e) { alert("Включи доступ!"); }
+        mediaRecorder.start(); recordBtn.style.color = "#ff9900";
+    } catch (e) { alert("Микрофон!"); }
 }
-
-recordBtn.onmousedown = () => { startRec('audio'); recordBtn.style.color = '#ff9900'; };
-recordBtn.onmouseup = () => { if(mediaRecorder) mediaRecorder.stop(); recordBtn.style.color = 'white'; };
-videoBtn.onmousedown = () => { startRec('video-note'); videoBtn.style.color = '#ff9900'; };
-videoBtn.onmouseup = () => { if(mediaRecorder) mediaRecorder.stop(); videoBtn.style.color = 'white'; };
-
-// --- РЕНДЕР СООБЩЕНИЙ ---
-socket.on('chat message', (data) => {
-    const div = document.createElement('div');
-    let content = '';
-    if (data.type === 'image') content = `<img src="${data.msg}" class="chat-media">`;
-    else if (data.type === 'video-file') content = `<video src="${data.msg}" controls class="chat-media"></video>`;
-    else if (data.type === 'video-note') content = `<video src="${data.msg}" class="video-circle" autoplay loop muted></video>`;
-    else if (data.type === 'audio') content = `<audio src="${data.msg}" controls></audio>`;
-    else content = `<span>${data.msg}</span>`;
-    
-    div.innerHTML = `<b style="color:#ff9900;">${data.name}:</b><br>${content}`;
-    chat.appendChild(div); 
-    chat.scrollTop = chat.scrollHeight;
-});
+function stopRec() { if (mediaRecorder && mediaRecorder.state !== "inactive") { mediaRecorder.stop(); recordBtn.style.color = "white"; } }
+recordBtn.onmousedown = startRec; recordBtn.onmouseup = stopRec;
+recordBtn.ontouchstart = (e) => { e.preventDefault(); startRec(); }; recordBtn.ontouchend = (e) => { e.preventDefault(); stopRec(); };
 
 // --- ЗВОНКИ ---
-async function startCall(id, name) {
-    targetUserId = id; 
-    callScreen.style.display = 'flex';
-    document.getElementById('caller-name').innerText = name;
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+function initPC() {
     peerConnection = new RTCPeerConnection(config);
+    peerConnection.onicecandidate = e => { if (e.candidate) socket.emit('ice-candidate', { to: targetUserId, candidate: e.candidate }); };
+    peerConnection.ontrack = e => { remoteAudio.srcObject = e.streams[0]; };
+}
+async function startCall(id, name) {
+    targetUserId = id; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = name;
+    initPC(); localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-    peerConnection.ontrack = e => remoteAudio.srcObject = e.streams[0];
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
+    const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer);
     socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Аноним" });
 }
-
-socket.on('incoming call', (data) => {
-    window.lastOffer = data.offer; 
-    targetUserId = data.from;
-    callScreen.style.display = 'flex';
-    document.getElementById('caller-name').innerText = data.fromName;
-    document.getElementById('answer-btn').style.display = 'inline-block';
-});
-
-async function answerCall() {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection = new RTCPeerConnection(config);
-    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-    peerConnection.ontrack = e => remoteAudio.srcObject = e.streams[0];
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(window.lastOffer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    socket.emit('accept call', { to: targetUserId, answer });
-    document.getElementById('answer-btn').style.display = 'none';
-}
-
+socket.on('incoming call', d => { window.lastOffer = d.offer; targetUserId = d.from; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = d.fromName; document.getElementById('answer-btn').style.display = 'inline-block'; });
+async function answerCall() { initPC(); localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream)); await peerConnection.setRemoteDescription(new RTCSessionDescription(window.lastOffer)); const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer); socket.emit('accept call', { to: targetUserId, answer }); document.getElementById('answer-btn').style.display = 'none'; }
 socket.on('call accepted', d => peerConnection.setRemoteDescription(new RTCSessionDescription(d.answer)));
-function endCall() { socket.emit('end call', { to: targetUserId }); location.reload(); }
+socket.on('ice-candidate', d => peerConnection && peerConnection.addIceCandidate(new RTCIceCandidate(d.candidate)));
 socket.on('call ended', () => location.reload());
+function endCall() { socket.emit('end call', { to: targetUserId }); location.reload(); }

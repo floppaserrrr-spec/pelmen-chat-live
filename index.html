@@ -2,29 +2,36 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PELMEN CONNECT</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <audio id="remote-audio" autoplay playsinline></audio>
-    <video id="preview" autoplay muted style="display:none; width: 150px; border-radius: 50%;"></video>
 
     <div id="sidebar">
-        <div class="sidebar-header">🥟 PELMEN CHAT</div>
-        <input type="text" id="nickname" placeholder="Твой Ник...">
+        <div class="sidebar-header">🥟 PELMEN CONNECT</div>
+        <div style="padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <input type="text" id="room-id" placeholder="Код комнаты...">
+            <input type="text" id="nickname" placeholder="Твой Ник...">
+            <button onclick="join()" class="btn-join">ВОЙТИ</button>
+            <button onclick="logout()" class="btn-logout">ВЫЙТИ</button>
+        </div>
         <div id="user-list"></div>
     </div>
 
     <div id="main">
-        <header>ЧАТ <span id="status" style="color: #00ff00; font-size: 12px;">• Online</span></header>
+        <header>
+            <button onclick="backToList()" id="back-btn" style="display:none; margin-right:10px;">⬅</button>
+            <span id="chat-target">ОБЩИЙ ЧАТ</span> 
+        </header>
         <div id="chat"></div>
         <div class="footer">
             <label for="file-input" style="cursor:pointer; font-size: 24px;">🖼️</label>
             <input type="file" id="file-input" accept="image/*,video/*" style="display:none" onchange="sendFile()">
-            <button id="record-btn">🎤</button>
-            <button id="video-note-btn">📸</button>
-            <input type="text" id="inp" placeholder="Напиши что-нибудь..." onkeypress="if(event.key === 'Enter') send()">
+            <button id="record-btn" style="font-size: 24px;">🎤</button> 
+            <input type="text" id="inp" placeholder="Сообщение..." onkeypress="if(event.key === 'Enter') send()">
             <button onclick="send()" id="send-btn">➤</button>
         </div>
     </div>
