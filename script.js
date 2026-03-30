@@ -1,4 +1,7 @@
-const socket = io('https://pelmen-chat.onrender.com'); 
+const socket = io('https://pelmen-chat.onrender.com', {
+    transports: ['websocket', 'polling'], // Пробуем сначала быстрый вебсокет, потом обычный опрос
+    withCredentials: true
+});
 
 const chat = document.getElementById('chat'), userList = document.getElementById('user-list');
 const input = document.getElementById('inp'), nickInput = document.getElementById('nickname');
