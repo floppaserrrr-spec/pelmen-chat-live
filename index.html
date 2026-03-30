@@ -7,11 +7,11 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <audio id="remote-audio" autoplay></audio>
-    <video id="preview" autoplay muted></video>
+    <audio id="remote-audio" autoplay playsinline></audio>
+    <video id="preview" autoplay muted style="display:none; width: 150px; border-radius: 50%;"></video>
 
     <div id="sidebar">
-        <div class="sidebar-header">🥟 ПЕЛЬМЕНЬ ЧАТ</div>
+        <div class="sidebar-header">🥟 PELMEN CHAT</div>
         <input type="text" id="nickname" placeholder="Твой Ник...">
         <div id="user-list"></div>
     </div>
@@ -29,7 +29,7 @@
         </div>
     </div>
 
-    <div id="call-screen">
+    <div id="call-screen" style="display:none;">
         <div class="call-box">
             <h2 id="call-status">📞 Звонок...</h2>
             <h3 id="caller-name">...</h3>

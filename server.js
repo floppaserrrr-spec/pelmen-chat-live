@@ -8,18 +8,18 @@ app.use(express.static(__dirname));
 let users = {};
 
 io.on('connection', (socket) => {
-    // Сразу отправляем список новому подключению
     socket.emit('user list', users);
 
     socket.on('set nickname', (name) => {
         users[socket.id] = name || "Аноним";
-        io.emit('user list', users); // Оповещаем всех об обновлении
+        io.emit('user list', users);
     });
 
     socket.on('chat message', (data) => {
         io.emit('chat message', data);
     });
 
+    // --- ЛОГИКА ЗВОНКОВ (ICE + WebRTC) ---
     socket.on('call user', (data) => {
         io.to(data.to).emit('incoming call', { 
             from: socket.id, 
@@ -30,6 +30,12 @@ io.on('connection', (socket) => {
 
     socket.on('accept call', (data) => {
         io.to(data.to).emit('call accepted', { answer: data.answer });
+    });
+
+    socket.on('ice-candidate', (data) => {
+        if (data.to) {
+            io.to(data.to).emit('ice-candidate', { candidate: data.candidate, from: socket.id });
+        }
     });
 
     socket.on('end call', (data) => {
@@ -43,4 +49,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log('Pelmen Server Live on port ' + PORT));
+http.listen(PORT, () => console.log('Server running on port ' + PORT));
