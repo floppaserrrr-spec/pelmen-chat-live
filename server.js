@@ -6,7 +6,7 @@ const io = require('socket.io')(http, { cors: { origin: "*" } });
 app.use(express.static(__dirname)); 
 
 let users = {}; 
-let allMessages = []; // Наш временный Data Store в памяти
+let allMessages = []; // Наш Data Store
 
 io.on('connection', (socket) => {
     socket.on('join room', (data) => {
@@ -14,7 +14,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         users[socket.id] = { name: name || "Аноним", room: roomId };
 
-        // При входе выдаем последние 50 сообщений ИМЕННО ЭТОЙ комнаты
+        // Отправляем историю этой комнаты при входе
         const roomHistory = allMessages
             .filter(m => m.room === roomId && !m.isPrivate)
             .slice(-50);
@@ -34,25 +34,25 @@ io.on('connection', (socket) => {
             isPrivate: !!data.to 
         };
 
-        // Сохраняем в память сервера, если это не личка
+        // Сохраняем в память, если это не личка
         if (!msgData.isPrivate) {
             allMessages.push(msgData);
-            if (allMessages.length > 500) allMessages.shift(); // Чтобы сервер не лопнул
+            if (allMessages.length > 500) allMessages.shift();
         }
 
         if (data.to) {
             io.to(data.to).emit('chat message', msgData);
             socket.emit('chat message', msgData);
         } else {
-            io.to(user.room).emit('chat message', msgData);
+            io.to(user.room).emit('chat message', data);
         }
     });
 
-    // Код звонков (без изменений)
-    socket.on('call user', (data) => io.to(data.to).emit('incoming call', { from: socket.id, offer: data.offer, fromName: data.fromName }));
-    socket.on('accept call', (data) => io.to(data.to).emit('call accepted', { answer: data.answer }));
-    socket.on('ice-candidate', (data) => { if (data.to) io.to(data.to).emit('ice-candidate', { candidate: data.candidate, from: socket.id }); });
-    socket.on('end call', (data) => { if (data.to) io.to(data.to).emit('call ended'); });
+    // --- ЗВОНКИ ---
+    socket.on('call user', (d) => io.to(d.to).emit('incoming call', { from: socket.id, offer: d.offer, fromName: d.fromName }));
+    socket.on('accept call', (d) => io.to(d.to).emit('call accepted', { answer: d.answer }));
+    socket.on('ice-candidate', (d) => { if (d.to) io.to(d.to).emit('ice-candidate', { candidate: d.candidate, from: socket.id }); });
+    socket.on('end call', (d) => { if (d.to) io.to(d.to).emit('call ended'); });
 
     function updateUserList(roomId) {
         const roomUsers = {};
@@ -67,4 +67,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => console.log('DataStore Server Live'));
+http.listen(PORT, () => console.log('Pelmen DataStore Live'));

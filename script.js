@@ -9,9 +9,17 @@ const remoteAudio = document.getElementById('remote-audio'), callScreen = docume
 let targetUserId = null, mediaRecorder, chunks = [];
 let localStream, peerConnection;
 
-const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+// РАСШИРЕННЫЙ КОНФИГ ДЛЯ СВЯЗИ МЕЖДУ РАЗНЫМИ УСТРОЙСТВАМИ
+const config = { 
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+    ] 
+};
 
-// --- ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ОТРИСОВКИ ---
 function displayMessage(data) {
     const div = document.createElement('div');
     let content = "";
@@ -43,7 +51,6 @@ roomInput.value = localStorage.getItem('pelmen_room') || "";
 nickInput.value = localStorage.getItem('pelmen_nick') || "";
 if (roomInput.value) join();
 
-// Прием истории при входе в комнату
 socket.on('load history', (history) => {
     chat.innerHTML = ""; 
     history.forEach(msg => displayMessage(msg));
@@ -52,12 +59,9 @@ socket.on('load history', (history) => {
 socket.on('chat message', (data) => {
     const isFromMe = (data.from === socket.id || !data.from);
     const isPrivateForMe = (data.isPrivate && (data.from === targetUserId || (data.to === targetUserId && isFromMe)));
-    if (!data.isPrivate || isPrivateForMe) {
-        displayMessage(data);
-    }
+    if (!data.isPrivate || isPrivateForMe) displayMessage(data);
 });
 
-// --- ОСТАЛЬНАЯ ЛОГИКА (СПИСОК, ЗВОНКИ, ГС) ---
 socket.on('user list', (allUsers) => {
     userList.innerHTML = '<div class="user-item" style="background:#222; color:#ff9900; font-weight:bold;" onclick="resetChat()">🏠 ОБЩИЙ ЧАТ</div>'; 
     Object.keys(allUsers).forEach((id) => {
@@ -87,6 +91,52 @@ function backToList() {
     backBtn.style.display = "none";
 }
 
+// --- ЗВОНКИ ---
+function initPC() {
+    peerConnection = new RTCPeerConnection(config);
+    peerConnection.onicecandidate = e => { 
+        if (e.candidate) socket.emit('ice-candidate', { to: targetUserId, candidate: e.candidate }); 
+    };
+    peerConnection.ontrack = e => { 
+        remoteAudio.srcObject = e.streams[0];
+        remoteAudio.play().catch(() => {});
+    };
+}
+
+async function startCall(id, name) {
+    targetUserId = id; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = name;
+    initPC(); try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+        const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer);
+        socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Аноним" });
+    } catch(e) { endCall(); }
+}
+
+socket.on('incoming call', d => { 
+    window.lastOffer = d.offer; targetUserId = d.from; 
+    callScreen.style.display = 'flex'; 
+    document.getElementById('caller-name').innerText = d.fromName; 
+    document.getElementById('answer-btn').style.display = 'inline-block'; 
+});
+
+async function answerCall() {
+    initPC(); localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(window.lastOffer));
+    const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer);
+    socket.emit('accept call', { to: targetUserId, answer });
+    document.getElementById('answer-btn').style.display = 'none';
+}
+
+socket.on('call accepted', d => peerConnection.setRemoteDescription(new RTCSessionDescription(d.answer)));
+socket.on('ice-candidate', d => {
+    if(peerConnection) peerConnection.addIceCandidate(new RTCIceCandidate(d.candidate)).catch(() => {});
+});
+socket.on('call ended', () => location.reload());
+function endCall() { socket.emit('end call', { to: targetUserId }); location.reload(); }
+
+// --- МЕДИА ---
 function sendFile() {
     const file = document.getElementById('file-input').files[0];
     if (!file) return;
@@ -105,7 +155,6 @@ function send() {
     input.value = '';
 }
 
-// ГС и Звонки (всё как в v2.7)
 async function startRec() {
     try {
         chunks = []; const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -123,24 +172,3 @@ async function startRec() {
 function stopRec() { if (mediaRecorder && mediaRecorder.state !== "inactive") { mediaRecorder.stop(); recordBtn.style.color = "white"; } }
 recordBtn.onmousedown = startRec; recordBtn.onmouseup = stopRec;
 recordBtn.ontouchstart = (e) => { e.preventDefault(); startRec(); }; recordBtn.ontouchend = (e) => { e.preventDefault(); stopRec(); };
-
-function initPC() {
-    peerConnection = new RTCPeerConnection(config);
-    peerConnection.onicecandidate = e => { if (e.candidate) socket.emit('ice-candidate', { to: targetUserId, candidate: e.candidate }); };
-    peerConnection.ontrack = e => { remoteAudio.srcObject = e.streams[0]; };
-}
-async function startCall(id, name) {
-    targetUserId = id; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = name;
-    initPC(); try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-        const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer);
-        socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Аноним" });
-    } catch(e) { endCall(); }
-}
-socket.on('incoming call', d => { window.lastOffer = d.offer; targetUserId = d.from; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = d.fromName; document.getElementById('answer-btn').style.display = 'inline-block'; });
-async function answerCall() { initPC(); localStream = await navigator.mediaDevices.getUserMedia({ audio: true }); localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream)); await peerConnection.setRemoteDescription(new RTCSessionDescription(window.lastOffer)); const answer = await peerConnection.createAnswer(); await peerConnection.setLocalDescription(answer); socket.emit('accept call', { to: targetUserId, answer }); document.getElementById('answer-btn').style.display = 'none'; }
-socket.on('call accepted', d => peerConnection.setRemoteDescription(new RTCSessionDescription(d.answer)));
-socket.on('ice-candidate', d => peerConnection && peerConnection.addIceCandidate(new RTCIceCandidate(d.candidate)));
-socket.on('call ended', () => location.reload());
-function endCall() { socket.emit('end call', { to: targetUserId }); location.reload(); }
