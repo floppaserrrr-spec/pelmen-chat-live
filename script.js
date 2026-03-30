@@ -104,13 +104,29 @@ function initPC() {
 }
 
 async function startCall(id, name) {
-    targetUserId = id; callScreen.style.display = 'flex'; document.getElementById('caller-name').innerText = name;
-    initPC(); try {
+    console.log("=== ПОПЫТКА ЗВОНКА К:", name, "(ID:", id, ") ===");
+    targetUserId = id; 
+    callScreen.style.display = 'flex'; 
+    document.getElementById('caller-name').innerText = name;
+
+    initPC(); 
+    try {
+        console.log("Запрашиваю доступ к микрофону...");
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Микрофон получен успешно!");
+
         localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-        const offer = await peerConnection.createOffer(); await peerConnection.setLocalDescription(offer);
+        
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        console.log("Отправляю сигнал вызова на сервер...");
         socket.emit('call user', { to: id, offer, fromName: nickInput.value || "Аноним" });
-    } catch(e) { endCall(); }
+    } catch(e) { 
+        console.error("КРИТИЧЕСКАЯ ОШИБКА ЗВОНКА:", e);
+        alert("Ошибка микрофона! Проверь разрешения в браузере.");
+        endCall(); 
+    }
 }
 
 socket.on('incoming call', d => { 
